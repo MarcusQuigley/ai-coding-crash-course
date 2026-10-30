@@ -13,6 +13,8 @@ import { getCurrentUserId } from "~/lib/session";
 import { formatPrice } from "~/lib/utils";
 import { getUserEnrolledCourses } from "~/services/enrollmentService";
 import { calculateProgress, getCompletedLessonCount } from "~/services/progressService";
+import { getCourseRatingSummaries } from "~/services/courseRatingService";
+import { StarRating } from "~/components/star-rating";
 import { resolveCountry } from "~/lib/country.server";
 import { calculatePppPrice } from "~/lib/ppp";
 
@@ -24,6 +26,7 @@ export function meta() {
 }
 
 export async function loader({ request, url }: Route.LoaderArgs) {
+  console.log("LOADER RAN")
   const search = url.searchParams.get("q");
   const category = url.searchParams.get("category");
 
@@ -54,6 +57,8 @@ export async function loader({ request, url }: Route.LoaderArgs) {
     }
   }
 
+  const ratingSummaries = getCourseRatingSummaries();
+
   const coursesWithLessonCount = courses.map((course) => {
     const userProgress = progressMap.get(course.id);
     const pppPrice = course.pppEnabled
@@ -64,6 +69,7 @@ export async function loader({ request, url }: Route.LoaderArgs) {
       lessonCount: getLessonCountForCourse(course.id),
       progress: userProgress?.progress ?? null,
       completedLessons: userProgress?.completedLessons ?? null,
+      rating: ratingSummaries.get(course.id) ?? {average: null, count: 0},
       pppPrice,
     };
   });
@@ -115,6 +121,7 @@ export function HydrateFallback() {
 }
 
 export default function CourseCatalog({ loaderData }: Route.ComponentProps) {
+  console.log("compoNENT RAN")
   const { courses, categories, search, category, currentUserId } = loaderData;
   const [searchParams] = useSearchParams();
   const navigation = useNavigation();
@@ -208,6 +215,13 @@ export default function CourseCatalog({ loaderData }: Route.ComponentProps) {
                   <p className="line-clamp-2 text-sm text-muted-foreground">
                     {course.description}
                   </p>
+                </CardContent>
+                <CardContent className="pt-0">
+                  <StarRating
+                    readOnly
+                    average={course.rating.average}
+                    count={course.rating.count}
+                  />
                 </CardContent>
                 {course.progress !== null && course.progress > 0 && (
                   <CardContent className="pt-0">

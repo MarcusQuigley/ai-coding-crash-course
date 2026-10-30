@@ -13,6 +13,12 @@ import {
   getLessonProgressForCourse,
   getNextIncompleteLesson,
 } from "~/services/progressService";
+import {
+  rateCourse,
+  getCourseRatingSummary,
+  getRatingByUserAndCourse,
+} from "~/services/courseRatingService";
+import { StarRating } from "~/components/star-rating";
 import { getCurrentUserId } from "~/lib/session";
 import { LessonProgressStatus } from "~/db/schema";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
@@ -71,13 +77,14 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   let progress = 0;
   let lessonProgressMap: Record<number, string> = {};
   let nextLessonId: number | null = null;
+  let userRating: number | null = null;
 
   if (currentUserId) {
     enrolled = isUserEnrolled(currentUserId, course.id);
 
     if (enrolled) {
       progress = calculateProgress(currentUserId, course.id, false, false);
-
+      userRating = getRatingByUserAndCourse(currentUserId,course.id)?.rating ?? null;
       const progressRecords = getLessonProgressForCourse(
         currentUserId,
         course.id
@@ -102,6 +109,8 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     : courseWithDetails.price;
   const tierInfo = getCountryTierInfo(country);
 
+  const ratingSummary = getCourseRatingSummary(course.id);
+
   return {
     course: courseWithDetails,
     salesCopyHtml,
@@ -113,7 +122,38 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     currentUserId,
     pppPrice,
     tierInfo,
+    ratingSummary,
+    userRating,
   };
+}
+export async function action({params,request}:Route.ActionArgs) {
+  const userId = await getCurrentUserId(request)
+  if (!userId) {
+    throw data("You must be logged in to rate a course", { status: 401 });
+  }
+
+  const course = getCourseBySlug(params.slug);
+  if (!course) {
+    throw data("Course not found", { status: 404 });
+  }
+
+  if (!isUserEnrolled(userId, course.id)) {
+    throw data("You must be enrolled to rate this course", { status: 403 });
+  }
+
+  const formData = await request.formData();
+  const intent = formData.get("intent");
+
+  if (intent === "rate") {
+    const rating = Number(formData.get("rating"));
+    const result = rateCourse(course.id, userId, rating);
+    if (!result) {
+      throw data("Rating must be a whole number from 1 to 5", { status: 400 });
+    }
+    return { rating: result.rating };
+  }
+
+  throw data("Invalid action", { status: 400 });
 }
 
 // No action — enrollment is handled via the purchase confirmation page
@@ -181,6 +221,9 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
     currentUserId,
     pppPrice,
     tierInfo,
+    
+ratingSummary,
+userRating,
   } = loaderData;
   const isInstructor = currentUserId === course.instructorId;
   const [searchParams, setSearchParams] = useSearchParams();
@@ -289,6 +332,21 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
         </div>
         <div className="mb-3 flex items-start justify-between gap-4">
           <h1 className="text-4xl font-bold">{course.title}</h1>
+          <div className="mb-4">
+            {enrolled ? (
+              <StarRating
+                average={ratingSummary.average}
+                count={ratingSummary.count}
+                userRating={userRating}
+              />
+            ) : (
+              <StarRating
+                readOnly
+                average={ratingSummary.average}
+                count={ratingSummary.count}
+              />
+            )}
+          </div>
           {currentUserId === course.instructorId && (
             <Link to={`/instructor/${course.id}`}>
               <Button variant="outline" size="sm" className="shrink-0">
