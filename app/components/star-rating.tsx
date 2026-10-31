@@ -16,7 +16,7 @@ function Summary({average, count}:{average: number|null ; count: number}){
     }
     return(
         <span className="text-xs text-muted-foreground">
-            {average.toFixed(1)}({count} {count===1 ? "rating" : "ratings"})
+            {average.toFixed(1)} ({count} {count===1 ? "rating" : "ratings"})
         </span>
     )
 }
