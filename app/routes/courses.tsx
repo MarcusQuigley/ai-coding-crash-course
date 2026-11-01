@@ -26,7 +26,6 @@ export function meta() {
 }
 
 export async function loader({ request, url }: Route.LoaderArgs) {
-  console.log("LOADER RAN")
   const search = url.searchParams.get("q");
   const category = url.searchParams.get("category");
 
@@ -121,8 +120,7 @@ export function HydrateFallback() {
 }
 
 export default function CourseCatalog({ loaderData }: Route.ComponentProps) {
-  console.log("compoNENT RAN")
-  const { courses, categories, search, category, currentUserId } = loaderData;
+   const { courses, categories, search, category, currentUserId } = loaderData;
   const [searchParams] = useSearchParams();
   const navigation = useNavigation();
   const isSearching =

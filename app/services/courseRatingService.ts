@@ -8,23 +8,8 @@ export function rateCourse(courseId: number, userId: number, rating: number){
     if (!Number.isInteger(rating)||rating<1||rating>5){
         return null
     }
-    // if (rating %1 !=0 ||rating < 1 || rating > 5){
-    //     return { ok: false, error: "rating needs to whole number between 1 and 5" };
-    // }
-    const now = new Date().toISOString();
-    
-    // const ratedCourse = getRatingByUserAndCourse(userId,courseId)
-    // if (ratedCourse==null){
-    //     return db
-    //         .insert(courseRatings)
-    //         .values({
-    //             courseId,
-    //             userId,
-    //             rating
-    //         })
-    //         .returning()
-    //         .get();
-    // }
+    const now = new Date().toISOString(); 
+   
     return db
         .insert(courseRatings)
         .values({courseId,userId,rating})
@@ -34,10 +19,7 @@ export function rateCourse(courseId: number, userId: number, rating: number){
         })
         .returning()
         .get();
-        //.update(courseRatings)
-        // .set({rating,updatedAt:new Date().toISOString()})
-        // .where(and(eq(courseRatings.courseId ,courseId) , eq(courseRatings.userId,userId)))
-    }
+       }
 
 export function getCourseRatingSummaries() {
    const rows = db
@@ -71,15 +53,6 @@ export function getCourseRatingSummary(courseId: number):RatingSummary{
     .get();
 
     return { average: row?.average ?? null, count: row?.count ?? 0};
-    // if (recs.length > 0){
-    // //     const sum = recs.reduce(a,b)=>a+b.
-    // //    // return {3,recs.length};
-
-    //    const total = recs.reduce((sum,r)=>sum+r.rating,0);
-    //     return total/recs.length
-    //   //(f, l):number => f.rating +  l.rating);
-    // }
-    // return null
 }
 
 

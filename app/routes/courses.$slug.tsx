@@ -156,7 +156,6 @@ export async function action({params,request}:Route.ActionArgs) {
   throw data("Invalid action", { status: 400 });
 }
 
-// No action — enrollment is handled via the purchase confirmation page
 
 export function HydrateFallback() {
   return (
