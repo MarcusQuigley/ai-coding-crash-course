@@ -1,5 +1,6 @@
 {
     "permissions":{
+        "ask": ["Bash(git commit *)", "Bash(npm run db:seed *)"],
         "deny":[
             "NotebookEdit",
             "DesignSync",

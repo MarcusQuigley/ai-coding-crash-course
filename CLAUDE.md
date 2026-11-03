@@ -12,7 +12,8 @@
 - Database code in services, called from loaders/actions, never in components.
 - Validate all form input on server. Never trust values from browser.
 - The user id always comes from the session.
-- Only commit when asked. Show git status first.
+- At the end of every task, show git status.
+- Only commit when asked.
 - Delete replaced code; never leave it commented out.
 - Don't change the schema unless the task says so.
 - No changes outside the task (config, .gitignore) without asking first.
