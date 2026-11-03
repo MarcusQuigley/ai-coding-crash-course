@@ -12,7 +12,7 @@ const STARS = [1,2,3,4,5];
 
 function Summary({average, count}:{average: number|null ; count: number}){
     if (count==0||average===null){
-        return <span className="text-xs text-muted-foreground">No ratings yet</span>
+        return <span className="text-xs text-muted-foreground">Not rated yet</span>
     }
     return(
         <span className="text-xs text-muted-foreground">
