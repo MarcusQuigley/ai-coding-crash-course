@@ -16,6 +16,8 @@ import {
   rateCourse,
   getCourseRatingSummary,
   getCourseRatingSummaries,
+  getRatingByUserAndCourse,
+  deleteRating,
 } from "./courseRatingService";
 
 function ratingRows() {
@@ -104,6 +106,27 @@ describe("courseRatingService", () => {
 
     it("omits courses with no ratings", () => {
       expect(getCourseRatingSummaries().has(base.course.id)).toBe(false);
+    });
+  });
+
+  describe("deleteRating", () => {
+    it("removes only the given user's rating and updates the summary", () => {
+      rateCourse(base.course.id, base.user.id, 2);
+      rateCourse(base.course.id, base.instructor.id, 4);
+
+      deleteRating(base.course.id, base.user.id);
+
+      expect(getRatingByUserAndCourse(base.user.id, base.course.id)).toBeUndefined();
+      expect(getRatingByUserAndCourse(base.instructor.id, base.course.id)!.rating).toBe(4);
+      expect(getCourseRatingSummary(base.course.id)).toEqual({ average: 4, count: 1 });
+    });
+
+    it("does nothing when the user has no rating", () => {
+      rateCourse(base.course.id, base.instructor.id, 4);
+
+      deleteRating(base.course.id, base.user.id);
+
+      expect(ratingRows()).toHaveLength(1);
     });
   });
 });

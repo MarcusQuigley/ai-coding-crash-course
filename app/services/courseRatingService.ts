@@ -82,4 +82,13 @@ export function getRatingByUserAndCourse(userId:number,courseId:number){
         .get();
 }
 
+export function deleteRating(courseId:number,userId:number){
+    return db
+        .delete(courseRatings)
+        .where(
+            and(eq(courseRatings.courseId,courseId),eq(courseRatings.userId,userId))
+        )
+        .run();
+}
+
 

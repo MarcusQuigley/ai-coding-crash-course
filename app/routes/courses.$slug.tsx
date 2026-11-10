@@ -17,6 +17,7 @@ import {
   rateCourse,
   getCourseRatingSummary,
   getRatingByUserAndCourse,
+  deleteRating,
 } from "~/services/courseRatingService";
 import { StarRating } from "~/components/star-rating";
 import { getCurrentUserId } from "~/lib/session";
@@ -151,6 +152,15 @@ export async function action({params,request}:Route.ActionArgs) {
       throw data("Rating must be a whole number from 1 to 5", { status: 400 });
     }
     return { rating: result.rating };
+  }
+
+  if (intent === "remove") {
+    const existing = getRatingByUserAndCourse(userId, course.id);
+    if (!existing) {
+      throw data("You have no rating to remove", { status: 404 });
+    }
+    deleteRating(course.id, userId);
+    return { rating: null };
   }
 
   throw data("Invalid action", { status: 400 });

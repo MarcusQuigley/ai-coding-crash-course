@@ -77,6 +77,18 @@ export function StarRating({
         ))}
       </fetcher.Form>
       <Summary average={average} count={count} />
+      {userRating !== null && (
+        <fetcher.Form method="post">
+          <input type="hidden" name="intent" value="remove" />
+          <button
+            type="submit"
+            disabled={fetcher.state !== "idle"}
+            className="text-xs text-muted-foreground underline hover:text-foreground"
+          >
+            Remove rating
+          </button>
+        </fetcher.Form>
+      )}
     </div>
   );
 }
