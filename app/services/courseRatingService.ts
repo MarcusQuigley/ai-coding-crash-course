@@ -72,6 +72,16 @@ export function findRatingByCourse(courseId:number){
     .all();
 }
 
+export type RatingBreakdown = Record<1 | 2 | 3 | 4 | 5, number>;
+
+export function getCourseRatingBreakdown(courseId:number):RatingBreakdown{
+    const breakdown: RatingBreakdown = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    for (const row of findRatingByCourse(courseId)) {
+        breakdown[row.rating as keyof RatingBreakdown] += 1;
+    }
+    return breakdown;
+}
+
 export function getRatingByUserAndCourse(userId:number,courseId:number){
     return db
         .select()

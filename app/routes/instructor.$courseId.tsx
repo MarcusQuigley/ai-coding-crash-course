@@ -35,6 +35,8 @@ import {
 } from "~/services/lessonService";
 import { getEnrollmentCountForCourse, getCourseEnrolledStudents } from "~/services/enrollmentService";
 import { calculateProgress } from "~/services/progressService";
+import { getCourseRatingSummary, getCourseRatingBreakdown } from "~/services/courseRatingService";
+import { StarRating } from "~/components/star-rating";
 import { getQuizByLessonId, getBestAttempt } from "~/services/quizService";
 import { getCurrentUserId } from "~/lib/session";
 import { getUserById } from "~/services/userService";
@@ -184,8 +186,10 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   });
 
   const quizCount = lessonQuizzes.length;
+  const ratingSummary = getCourseRatingSummary(courseId);
+  const ratingBreakdown = getCourseRatingBreakdown(courseId);
 
-  return { course, lessonCount, enrollmentCount, students, quizCount };
+  return { course, lessonCount, enrollmentCount, students, quizCount, ratingSummary, ratingBreakdown };
 }
 
 export async function action({ params, request }: Route.ActionArgs) {
@@ -984,7 +988,7 @@ function statusBadgeColor(status: string) {
 export default function InstructorCourseEditor({
   loaderData,
 }: Route.ComponentProps) {
-  const { course, lessonCount, enrollmentCount, students, quizCount } = loaderData;
+  const { course, lessonCount, enrollmentCount, students, quizCount, ratingSummary, ratingBreakdown } = loaderData;
   const statusFetcher = useFetcher();
   const reorderFetcher = useFetcher();
   const lessonReorderFetcher = useFetcher();
@@ -1173,6 +1177,40 @@ export default function InstructorCourseEditor({
           </span>
         </div>
       </div>
+
+      {/* Ratings (read-only) */}
+      {ratingSummary.count > 0 && (
+        <Card className="mb-8">
+          <CardHeader>
+            <h2 className="text-lg font-semibold">Ratings</h2>
+            <StarRating
+              readOnly
+              average={ratingSummary.average}
+              count={ratingSummary.count}
+            />
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1 text-sm">
+              {([5, 4, 3, 2, 1] as const).map((stars) => (
+                <li key={stars} className="flex items-center gap-3">
+                  <span className="w-8">{stars}★</span>
+                  <div className="h-2 flex-1 rounded bg-muted">
+                    <div
+                      className="h-2 rounded bg-yellow-400"
+                      style={{
+                        width: `${(ratingBreakdown[stars] / ratingSummary.count) * 100}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="w-6 text-right text-muted-foreground">
+                    {ratingBreakdown[stars]}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Tabs */}
       <Tabs defaultValue="content">

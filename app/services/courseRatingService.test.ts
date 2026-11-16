@@ -17,6 +17,7 @@ import {
   getCourseRatingSummary,
   getCourseRatingSummaries,
   getRatingByUserAndCourse,
+  getCourseRatingBreakdown,
   deleteRating,
 } from "./courseRatingService";
 
@@ -106,6 +107,37 @@ describe("courseRatingService", () => {
 
     it("omits courses with no ratings", () => {
       expect(getCourseRatingSummaries().has(base.course.id)).toBe(false);
+    });
+  });
+
+  describe("getCourseRatingBreakdown", () => {
+    it("returns all zeros with no ratings", () => {
+      expect(getCourseRatingBreakdown(base.course.id)).toEqual({
+        1: 0, 2: 0, 3: 0, 4: 0, 5: 0,
+      });
+    });
+
+    it("counts ratings per star for the given course only", () => {
+      const other = testDb
+        .insert(schema.courses)
+        .values({
+          title: "Other Course",
+          slug: "other-course",
+          description: "Another",
+          instructorId: base.instructor.id,
+          categoryId: base.category.id,
+          status: schema.CourseStatus.Published,
+        })
+        .returning()
+        .get();
+
+      rateCourse(base.course.id, base.user.id, 1);
+      rateCourse(base.course.id, base.instructor.id, 5);
+      rateCourse(other.id, base.user.id, 3);
+
+      expect(getCourseRatingBreakdown(base.course.id)).toEqual({
+        1: 1, 2: 0, 3: 0, 4: 0, 5: 1,
+      });
     });
   });
 
