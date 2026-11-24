@@ -36,6 +36,13 @@
       "when": 1792671640914,
       "tag": "0004_killer_move",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1795519339439,
+      "tag": "0005_course_announcements",
+      "breakpoints": true
     }
   ]
 }

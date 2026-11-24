@@ -45,6 +45,7 @@ async function seed() {
 
   // Drop and recreate tables for a clean seed
   sqlite.exec(`
+    DROP TABLE IF EXISTS course_announcements;
     DROP TABLE IF EXISTS course_ratings;
     DROP TABLE IF EXISTS video_watch_events;
     DROP TABLE IF EXISTS quiz_answers;
@@ -1441,6 +1442,33 @@ You've completed the Building REST APIs course. You now have the skills to build
     .run();
 
   console.log("Created 4 course ratings.");
+
+  // ─── Course Announcements ───
+
+  db.insert(schema.courseAnnouncements)
+    .values([
+      {
+        courseId: course1.id,
+        authorId: instructor1.id,
+        body: "Welcome! Start with Module 1 and post questions as you go.",
+        createdAt: daysAgo(40),
+      },
+      {
+        courseId: course1.id,
+        authorId: instructor1.id,
+        body: "Fixed the broken video in Lesson 2. Thanks to everyone who reported it.",
+        createdAt: daysAgo(14),
+      },
+      {
+        courseId: course2.id,
+        authorId: instructor2.id,
+        body: "New exercises have been added to the final module.",
+        createdAt: daysAgo(6),
+      },
+    ])
+    .run();
+
+  console.log("Created 3 course announcements.");
 
   // ─── Lesson Progress ───
 

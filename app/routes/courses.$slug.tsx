@@ -19,6 +19,7 @@ import {
   getRatingByUserAndCourse,
   deleteRating,
 } from "~/services/courseRatingService";
+import { getAnnouncementsForCourse } from "~/services/announcementService";
 import { StarRating } from "~/components/star-rating";
 import { getCurrentUserId } from "~/lib/session";
 import { LessonProgressStatus } from "~/db/schema";
@@ -38,6 +39,7 @@ import {
   CheckCircle2,
   Circle,
   Clock,
+  Megaphone,
   Pencil,
   PlayCircle,
   Users,
@@ -79,6 +81,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   let lessonProgressMap: Record<number, string> = {};
   let nextLessonId: number | null = null;
   let userRating: number | null = null;
+  let announcements: ReturnType<typeof getAnnouncementsForCourse> = [];
 
   if (currentUserId) {
     enrolled = isUserEnrolled(currentUserId, course.id);
@@ -86,6 +89,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     if (enrolled) {
       progress = calculateProgress(currentUserId, course.id, false, false);
       userRating = getRatingByUserAndCourse(currentUserId,course.id)?.rating ?? null;
+      announcements = getAnnouncementsForCourse(course.id);
       const progressRecords = getLessonProgressForCourse(
         currentUserId,
         course.id
@@ -125,6 +129,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     tierInfo,
     ratingSummary,
     userRating,
+    announcements,
   };
 }
 export async function action({params,request}:Route.ActionArgs) {
@@ -233,6 +238,7 @@ export default function CourseDetail({ loaderData }: Route.ComponentProps) {
     
 ratingSummary,
 userRating,
+    announcements,
   } = loaderData;
   const isInstructor = currentUserId === course.instructorId;
   const [searchParams, setSearchParams] = useSearchParams();
@@ -394,6 +400,36 @@ userRating,
       <div className="grid gap-8 lg:grid-cols-3">
         {/* Left column: sales copy + course content */}
         <div className="lg:col-span-2">
+          {announcements.length > 0 && (
+            <Card className="mb-8">
+              <CardHeader>
+                <h2 className="flex items-center gap-2 text-lg font-semibold">
+                  <Megaphone className="size-4" />
+                  Announcements
+                </h2>
+              </CardHeader>
+              <CardContent>
+                <ol className="divide-y">
+                  {announcements.map((announcement) => (
+                    <li key={announcement.id} className="space-y-1 py-3 first:pt-0 last:pb-0">
+                      <time
+                        dateTime={announcement.createdAt}
+                        className="text-xs text-muted-foreground"
+                      >
+                        {new Date(announcement.createdAt).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </time>
+                      <p className="whitespace-pre-line text-sm">{announcement.body}</p>
+                    </li>
+                  ))}
+                </ol>
+              </CardContent>
+            </Card>
+          )}
+
           {salesCopyHtml ? (
             <div
               className="prose prose-neutral dark:prose-invert max-w-none"

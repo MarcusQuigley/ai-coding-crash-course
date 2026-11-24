@@ -36,6 +36,11 @@ import {
 import { getEnrollmentCountForCourse, getCourseEnrolledStudents } from "~/services/enrollmentService";
 import { calculateProgress } from "~/services/progressService";
 import { getCourseRatingSummary, getCourseRatingBreakdown } from "~/services/courseRatingService";
+import {
+  createAnnouncement,
+  deleteAnnouncement,
+  getAnnouncementsForCourse,
+} from "~/services/announcementService";
 import { StarRating } from "~/components/star-rating";
 import { getQuizByLessonId, getBestAttempt } from "~/services/quizService";
 import { getCurrentUserId } from "~/lib/session";
@@ -46,6 +51,7 @@ import { MonacoMarkdownEditor } from "~/components/monaco-markdown-editor";
 import { Card, CardContent, CardHeader } from "~/components/ui/card";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
+import { Textarea } from "~/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -71,6 +77,7 @@ import {
   Award,
   Globe,
   FileText,
+  Megaphone,
 } from "lucide-react";
 import { data, isRouteErrorResponse } from "react-router";
 import { z } from "zod";
@@ -79,6 +86,10 @@ import { parseFormData, parseParams } from "~/lib/validation";
 const courseEditorParamsSchema = z.object({
   courseId: z.coerce.number().int(),
 });
+
+// Kept here, not in announcementService: the component uses it, and importing
+// from a service would pull server-only database code into the browser bundle.
+const ANNOUNCEMENT_MAX_LENGTH = 1000;
 
 const courseEditorActionSchema = z.discriminatedUnion("intent", [
   z.object({ intent: z.literal("update-title"), title: z.string().trim().min(1, "Title cannot be empty.") }),
@@ -96,6 +107,15 @@ const courseEditorActionSchema = z.discriminatedUnion("intent", [
   z.object({ intent: z.literal("move-lesson"), lessonId: z.coerce.number().int(), targetModuleId: z.coerce.number().int(), targetPosition: z.coerce.number().int() }),
   z.object({ intent: z.literal("delete-lesson"), lessonId: z.coerce.number().int() }),
   z.object({ intent: z.literal("update-sales-copy"), salesCopy: z.string().optional() }),
+  z.object({
+    intent: z.literal("post-announcement"),
+    body: z
+      .string()
+      .trim()
+      .min(1, "Announcement cannot be empty.")
+      .max(ANNOUNCEMENT_MAX_LENGTH, `Announcement cannot exceed ${ANNOUNCEMENT_MAX_LENGTH} characters.`),
+  }),
+  z.object({ intent: z.literal("delete-announcement"), announcementId: z.coerce.number().int() }),
 ]);
 
 export function meta({ loaderData }: Route.MetaArgs) {
@@ -188,8 +208,9 @@ export async function loader({ params, request }: Route.LoaderArgs) {
   const quizCount = lessonQuizzes.length;
   const ratingSummary = getCourseRatingSummary(courseId);
   const ratingBreakdown = getCourseRatingBreakdown(courseId);
+  const announcements = getAnnouncementsForCourse(courseId);
 
-  return { course, lessonCount, enrollmentCount, students, quizCount, ratingSummary, ratingBreakdown };
+  return { course, lessonCount, enrollmentCount, students, quizCount, ratingSummary, ratingBreakdown, announcements };
 }
 
 export async function action({ params, request }: Route.ActionArgs) {
@@ -359,6 +380,18 @@ export async function action({ params, request }: Route.ActionArgs) {
   if (intent === "update-sales-copy") {
     updateCourseSalesCopy(courseId, parsed.data.salesCopy || null);
     return { success: true, field: "sales-copy" };
+  }
+
+  if (intent === "post-announcement") {
+    createAnnouncement(courseId, currentUserId, parsed.data.body);
+    return { success: true, field: "announcement" };
+  }
+
+  if (intent === "delete-announcement") {
+    if (!deleteAnnouncement(parsed.data.announcementId, courseId)) {
+      return data({ error: "Announcement not found in this course." }, { status: 404 });
+    }
+    return { success: true, field: "announcement" };
   }
 
   throw data("Invalid action.", { status: 400 });
@@ -972,6 +1005,114 @@ function AddLessonForm({ moduleId }: { moduleId: number }) {
   );
 }
 
+function PostAnnouncementForm() {
+  const [body, setBody] = useState("");
+  const fetcher = useFetcher();
+  const isSubmitting = fetcher.state !== "idle";
+
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data?.success) {
+      setBody("");
+      toast.success("Announcement posted.");
+    }
+    if (fetcher.state === "idle" && fetcher.data?.error) {
+      toast.error(fetcher.data.error);
+    }
+  }, [fetcher.state, fetcher.data]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="text-lg font-semibold">Post an announcement</h2>
+        <p className="text-sm text-muted-foreground">
+          Enrolled students see this on the course page.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <fetcher.Form method="post" className="space-y-3">
+          <input type="hidden" name="intent" value="post-announcement" />
+          <label htmlFor="announcement-body" className="text-sm font-medium">
+            Message
+          </label>
+          <Textarea
+            id="announcement-body"
+            name="body"
+            rows={4}
+            maxLength={ANNOUNCEMENT_MAX_LENGTH}
+            placeholder="Share a short update with your students…"
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+          />
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground">
+              {body.length} / {ANNOUNCEMENT_MAX_LENGTH}
+            </span>
+            <Button type="submit" disabled={isSubmitting || body.trim().length === 0}>
+              Post announcement
+            </Button>
+          </div>
+        </fetcher.Form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DeleteAnnouncementButton({ announcementId }: { announcementId: number }) {
+  const [confirming, setConfirming] = useState(false);
+  const fetcher = useFetcher();
+
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data?.success) {
+      toast.success("Announcement deleted.");
+    }
+    if (fetcher.state === "idle" && fetcher.data?.error) {
+      toast.error(fetcher.data.error);
+    }
+  }, [fetcher.state, fetcher.data]);
+
+  if (confirming) {
+    return (
+      <div className="flex items-center gap-2">
+        <span className="text-xs text-destructive">Delete this announcement?</span>
+        <Button
+          variant="destructive"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={() => {
+            fetcher.submit(
+              { intent: "delete-announcement", announcementId: String(announcementId) },
+              { method: "post" }
+            );
+            setConfirming(false);
+          }}
+        >
+          Confirm
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 text-xs"
+          onClick={() => setConfirming(false)}
+        >
+          Cancel
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+      aria-label="Delete announcement"
+      onClick={() => setConfirming(true)}
+    >
+      <Trash2 className="size-4" />
+    </Button>
+  );
+}
+
 function statusBadgeColor(status: string) {
   switch (status) {
     case CourseStatus.Published:
@@ -988,7 +1129,7 @@ function statusBadgeColor(status: string) {
 export default function InstructorCourseEditor({
   loaderData,
 }: Route.ComponentProps) {
-  const { course, lessonCount, enrollmentCount, students, quizCount, ratingSummary, ratingBreakdown } = loaderData;
+  const { course, lessonCount, enrollmentCount, students, quizCount, ratingSummary, ratingBreakdown, announcements } = loaderData;
   const statusFetcher = useFetcher();
   const reorderFetcher = useFetcher();
   const lessonReorderFetcher = useFetcher();
@@ -1230,6 +1371,10 @@ export default function InstructorCourseEditor({
           <TabsTrigger value="students">
             <Users className="size-4" />
             Students
+          </TabsTrigger>
+          <TabsTrigger value="announcements">
+            <Megaphone className="size-4" />
+            Announcements
           </TabsTrigger>
         </TabsList>
 
@@ -1689,6 +1834,46 @@ export default function InstructorCourseEditor({
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Announcements Tab */}
+        <TabsContent value="announcements" className="mt-6 space-y-6">
+          <PostAnnouncementForm />
+
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold">Posted ({announcements.length})</h2>
+            {announcements.length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center">
+                  <Megaphone className="mx-auto mb-3 size-8 text-muted-foreground/50" />
+                  <p className="text-muted-foreground">No announcements yet.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              announcements.map((announcement) => (
+                <Card key={announcement.id}>
+                  <CardContent className="space-y-2 py-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <time
+                        dateTime={announcement.createdAt}
+                        className="text-xs text-muted-foreground"
+                      >
+                        {new Date(announcement.createdAt).toLocaleDateString("en-US", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </time>
+                      <DeleteAnnouncementButton announcementId={announcement.id} />
+                    </div>
+                    <p className="whitespace-pre-line text-sm">{announcement.body}</p>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </section>
         </TabsContent>
       </Tabs>
     </div>

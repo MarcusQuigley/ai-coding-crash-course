@@ -264,6 +264,20 @@ export const courseRatings = sqliteTable("course_ratings",{
   ]
 );
 
+export const courseAnnouncements = sqliteTable("course_announcements", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  courseId: integer("course_id")
+    .notNull()
+    .references(() => courses.id),
+  authorId: integer("author_id")
+    .notNull()
+    .references(() => users.id),
+  body: text("body").notNull(),
+  createdAt: text("created_at")
+    .notNull()
+    .$defaultFn(() => new Date().toISOString()),
+});
+
 export const videoWatchEvents = sqliteTable("video_watch_events", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   userId: integer("user_id")

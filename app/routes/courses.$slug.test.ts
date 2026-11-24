@@ -12,7 +12,7 @@ vi.mock("~/db", () => ({
 }));
 
 // Import after mock so the modules pick up our test db
-import { action } from "./courses.$slug";
+import { action, loader } from "./courses.$slug";
 import { setCurrentUserId } from "~/lib/session";
 import {
   rateCourse,
@@ -21,6 +21,7 @@ import {
 } from "~/services/courseRatingService";
 
 type ActionArgs = Parameters<typeof action>[0];
+type LoaderArgs = Parameters<typeof loader>[0];
 
 let otherStudent: typeof schema.users.$inferSelect;
 let otherCourse: typeof schema.courses.$inferSelect;
@@ -168,5 +169,64 @@ describe("courses.$slug action — remove rating", () => {
 
     await removeRequest(base.user.id);
     await expectStatus(removeRequest(base.user.id), 404);
+  });
+});
+
+describe("courses.$slug loader — announcements", () => {
+  async function load(userId: number | null) {
+    const headers = new Headers();
+    if (userId !== null) {
+      const setCookie = await setCurrentUserId(new Request("http://test/"), userId);
+      headers.set("Cookie", setCookie.split(";")[0]);
+    }
+    const slug = base.course.slug;
+    const request = new Request(`http://test/courses/${slug}`, { headers });
+    return loader({ params: { slug }, request } as unknown as LoaderArgs);
+  }
+
+  let admin: typeof schema.users.$inferSelect;
+
+  beforeEach(() => {
+    testDb = createTestDb();
+    base = seedBaseData(testDb);
+
+    admin = testDb
+      .insert(schema.users)
+      .values({ name: "Admin", email: "admin@example.com", role: schema.UserRole.Admin })
+      .returning()
+      .get();
+
+    testDb
+      .insert(schema.courseAnnouncements)
+      .values([
+        { courseId: base.course.id, authorId: base.instructor.id, body: "old", createdAt: "2026-01-01T00:00:00.000Z" },
+        { courseId: base.course.id, authorId: base.instructor.id, body: "new", createdAt: "2026-02-01T00:00:00.000Z" },
+      ])
+      .run();
+  });
+
+  it("returns announcements newest first, without the author, to an enrolled student", async () => {
+    enroll(base.user.id, base.course.id);
+
+    const result = await load(base.user.id);
+
+    expect(result.announcements.map((a) => a.body)).toEqual(["new", "old"]);
+    expect(result.announcements[0]).not.toHaveProperty("authorId");
+  });
+
+  it("returns none to a logged-out visitor", async () => {
+    expect((await load(null)).announcements).toEqual([]);
+  });
+
+  it("returns none to a logged-in student who isn't enrolled", async () => {
+    expect((await load(base.user.id)).announcements).toEqual([]);
+  });
+
+  it("returns none to the course's instructor viewing the course page", async () => {
+    expect((await load(base.instructor.id)).announcements).toEqual([]);
+  });
+
+  it("returns none to an admin who isn't enrolled", async () => {
+    expect((await load(admin.id)).announcements).toEqual([]);
   });
 });
