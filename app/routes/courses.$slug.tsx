@@ -89,7 +89,6 @@ export async function loader({ params, request }: Route.LoaderArgs) {
     if (enrolled) {
       progress = calculateProgress(currentUserId, course.id, false, false);
       userRating = getRatingByUserAndCourse(currentUserId,course.id)?.rating ?? null;
-      announcements = getAnnouncementsForCourse(course.id);
       const progressRecords = getLessonProgressForCourse(
         currentUserId,
         course.id
@@ -100,6 +99,11 @@ export async function loader({ params, request }: Route.LoaderArgs) {
 
       const nextLesson = getNextIncompleteLesson(currentUserId, course.id);
       nextLessonId = nextLesson?.id ?? null;
+    }
+
+    // The course's instructor sees a preview of what enrolled students see.
+    if (enrolled || currentUserId === course.instructorId) {
+      announcements = getAnnouncementsForCourse(course.id);
     }
   }
 

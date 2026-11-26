@@ -222,8 +222,21 @@ describe("courses.$slug loader — announcements", () => {
     expect((await load(base.user.id)).announcements).toEqual([]);
   });
 
-  it("returns none to the course's instructor viewing the course page", async () => {
-    expect((await load(base.instructor.id)).announcements).toEqual([]);
+  it("returns announcements, without the author, to the course's instructor as a preview", async () => {
+    const result = await load(base.instructor.id);
+
+    expect(result.announcements.map((a) => a.body)).toEqual(["new", "old"]);
+    expect(result.announcements[0]).not.toHaveProperty("authorId");
+  });
+
+  it("returns none to another instructor who doesn't own the course", async () => {
+    const otherInstructor = testDb
+      .insert(schema.users)
+      .values({ name: "Other Instructor", email: "other.instructor@example.com", role: schema.UserRole.Instructor })
+      .returning()
+      .get();
+
+    expect((await load(otherInstructor.id)).announcements).toEqual([]);
   });
 
   it("returns none to an admin who isn't enrolled", async () => {
