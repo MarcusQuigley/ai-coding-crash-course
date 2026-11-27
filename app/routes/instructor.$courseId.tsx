@@ -1057,18 +1057,16 @@ function PostAnnouncementForm() {
   );
 }
 
-function DeleteAnnouncementButton({ announcementId }: { announcementId: number }) {
+// The delete fetcher and its toast live in the parent: this button unmounts when
+// its announcement disappears, so a toast here would never show.
+function DeleteAnnouncementButton({
+  onConfirm,
+  disabled,
+}: {
+  onConfirm: () => void;
+  disabled: boolean;
+}) {
   const [confirming, setConfirming] = useState(false);
-  const fetcher = useFetcher();
-
-  useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data?.success) {
-      toast.success("Announcement deleted.");
-    }
-    if (fetcher.state === "idle" && fetcher.data?.error) {
-      toast.error(fetcher.data.error);
-    }
-  }, [fetcher.state, fetcher.data]);
 
   if (confirming) {
     return (
@@ -1078,11 +1076,9 @@ function DeleteAnnouncementButton({ announcementId }: { announcementId: number }
           variant="destructive"
           size="sm"
           className="h-7 text-xs"
+          disabled={disabled}
           onClick={() => {
-            fetcher.submit(
-              { intent: "delete-announcement", announcementId: String(announcementId) },
-              { method: "post" }
-            );
+            onConfirm();
             setConfirming(false);
           }}
         >
@@ -1106,6 +1102,7 @@ function DeleteAnnouncementButton({ announcementId }: { announcementId: number }
       size="sm"
       className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
       aria-label="Delete announcement"
+      disabled={disabled}
       onClick={() => setConfirming(true)}
     >
       <Trash2 className="size-4" />
@@ -1136,9 +1133,19 @@ export default function InstructorCourseEditor({
   const salesCopyFetcher = useFetcher();
   const priceFetcher = useFetcher();
   const pppFetcher = useFetcher();
+  const deleteAnnouncementFetcher = useFetcher();
 
   const [salesCopy, setSalesCopy] = useState(course.salesCopy ?? "");
   const salesCopyHasChanges = salesCopy !== (course.salesCopy ?? "");
+
+  useEffect(() => {
+    if (deleteAnnouncementFetcher.state === "idle" && deleteAnnouncementFetcher.data?.success) {
+      toast.success("Announcement deleted.");
+    }
+    if (deleteAnnouncementFetcher.state === "idle" && deleteAnnouncementFetcher.data?.error) {
+      toast.error(deleteAnnouncementFetcher.data.error);
+    }
+  }, [deleteAnnouncementFetcher.state, deleteAnnouncementFetcher.data]);
 
   useEffect(() => {
     if (statusFetcher.state === "idle" && statusFetcher.data?.success) {
@@ -1866,7 +1873,15 @@ export default function InstructorCourseEditor({
                           minute: "2-digit",
                         })}
                       </time>
-                      <DeleteAnnouncementButton announcementId={announcement.id} />
+                      <DeleteAnnouncementButton
+                        disabled={deleteAnnouncementFetcher.state !== "idle"}
+                        onConfirm={() =>
+                          deleteAnnouncementFetcher.submit(
+                            { intent: "delete-announcement", announcementId: String(announcement.id) },
+                            { method: "post" }
+                          )
+                        }
+                      />
                     </div>
                     <p className="whitespace-pre-line text-sm">{announcement.body}</p>
                   </CardContent>
